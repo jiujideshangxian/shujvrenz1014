@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"crypto/md5"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -8,7 +9,9 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"shujvrenzhengzhichonglai/models"
 	"strings"
+	"time"
 )
 
 type UploadFileController struct {
@@ -42,7 +45,41 @@ func (u *UploadFileController)Post(){
 	hashBytes:=hash256.Sum(nil)
 	fmt.Println(hex.EncodeToString(hashBytes))
 
-	u.Ctx.WriteString("恭喜，已接收到上传文件")
+	//u.Ctx.WriteString("恭喜，已接收到上传文件")
+	user1, err := models.User{Phone: phone}.QueryUserByPhone()
+	if err != nil {
+		u.Ctx.WriteString("抱歉，电子数据认证失败，请稍后再试!")
+		return
+	}
+
+	//把上传的文件作为记录保存到数据库当中
+	//① 计算md5值
+	md5Hash := md5.New()
+	fileMd5Bytes, err := ioutil.ReadAll(saveFile)
+	md5Hash.Write(fileMd5Bytes)
+	bytes := md5Hash.Sum(nil)
+	record := models.UploadRecord{
+		UserId:    user1.Id,
+		FileName:  header.Filename,
+		FileSize:  header.Size,
+		FileCert:  hex.EncodeToString(bytes),
+		FileTitle: tile,
+		CertTime:  time.Now().Unix(),
+	}
+	//② 保存认证数据到数据库中
+	_, err = record.SaveRecord()
+	if err != nil {
+		u.Ctx.WriteString("抱歉，电子数据认证保存失败，请稍后再试!")
+		return
+	}
+	//上传文件保存到数据库中成功
+	records, err := models.QueryRecordsByUserId(user1.Id)
+	if err != nil {
+		u.Ctx.WriteString("抱歉, 获取电子数据列表失败, 请重新尝试!")
+		return
+	}
+	u.Data["Records"] = records
+	u.TplName = "list_record.html"
 }
 
 func (u *UploadFileController)Post1(){

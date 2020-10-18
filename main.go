@@ -18,6 +18,7 @@ func main() {
 
 	beego.Run() //阻塞
 	fmt.Println("nan")
+	fmt.Println("yaogen")
 	//http.ListenAndServe(":8080")
 }
 
